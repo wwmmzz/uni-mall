@@ -1,0 +1,7 @@
+node_modules/
+
+uni-mall-miniprogram/node_modules/
+uni-mall-miniprogram/dist/
+
+uni-mall-nest-backend/node_modules/
+uni-mall-nest-backend/dist/

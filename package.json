@@ -1,0 +1,27 @@
+{
+  "name": "uni-mall",
+  "private": true,
+  "workspaces": [
+    "uni-mall-miniprogram",
+    "uni-mall-nest-backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "npm run dev:h5 --workspace uni-mall-miniprogram",
+    "dev:frontend:weixin": "npm run dev:mp-weixin --workspace uni-mall-miniprogram",
+    "dev:backend": "npm run start:dev --workspace uni-mall-nest-backend",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:frontend": "npm run build:h5 --workspace uni-mall-miniprogram",
+    "build:frontend:weixin": "npm run build:mp-weixin --workspace uni-mall-miniprogram",
+    "build:backend": "npm run build --workspace uni-mall-nest-backend",
+    "lint": "npm run lint --workspace uni-mall-nest-backend",
+    "format": "npm run format --workspace uni-mall-nest-backend",
+    "type-check": "npm run type-check --workspace uni-mall-miniprogram",
+    "db:migrate": "npm run db:migrate --workspace uni-mall-nest-backend",
+    "db:seed": "npm run db:seed --workspace uni-mall-nest-backend",
+    "db:reset": "npm run db:reset --workspace uni-mall-nest-backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
