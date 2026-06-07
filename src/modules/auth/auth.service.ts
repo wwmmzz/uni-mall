@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthUser, JwtPayload } from '../../common/types/auth-user';
 import { DatabaseService } from '../../database/database.service';
 import { MockLoginDto } from './dto/mock-login.dto';
+import { log } from 'node:console';
 
 interface UserRow {
   id: string;
@@ -25,15 +26,16 @@ export class AuthService {
       const row = await tx.one<UserRow>(
         `
         INSERT INTO users (phone, nickname, avatar_text)
-        VALUES ($1, COALESCE(NULLIF($2, ''), '优选会员'), SUBSTRING($1 FROM 1 FOR 1))
+        VALUES ($1::text, COALESCE(NULLIF($2, ''), '优选会员'), LEFT($1, 1))
         ON CONFLICT (phone) DO UPDATE SET
           nickname = COALESCE(NULLIF(EXCLUDED.nickname, ''), users.nickname),
           updated_at = NOW()
         RETURNING id, phone, nickname, avatar_text, role, created_at
         `,
-        [dto.phone, dto.nickname ?? null],
+        [dto.phone?.toString(), dto.nickname ?? null],
       );
-
+      console.log('row',row);
+      
       await tx.query('INSERT INTO carts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [row.id]);
       await tx.query(
         `
