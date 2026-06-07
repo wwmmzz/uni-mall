@@ -72,40 +72,58 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import ProductCard from '@/components/ProductCard/ProductCard.vue'
 import EmptyState from '@/components/EmptyState/EmptyState.vue'
-import { searchProducts } from '@/common/mock.js'
+import { getProducts } from '@/api/product.js'
+import { addCartItem } from '@/api/cart.js'
+import { hotKeywords } from '@/common/constants.js'
 import {
-  addToCart,
   getSearchHistory,
   addSearchHistory,
-  clearSearchHistory
+  clearSearchHistory,
+  requireLogin
 } from '@/utils/storage.js'
 
 const keyword = ref('')
 const historyList = ref([])
-const hotKeywords = ['手机', '耳机', '洁面', '坚果', '沙发', '跑步鞋']
-
-const resultList = computed(() => searchProducts(keyword.value))
+const resultList = ref([])
 
 function refreshHistory() {
   historyList.value = getSearchHistory()
 }
 
-function handleSearch(event) {
+async function loadResults() {
+  if (!keyword.value) {
+    resultList.value = []
+    return
+  }
+
+  const res = await getProducts({
+    keyword: keyword.value,
+    page: 1,
+    pageSize: 50
+  })
+  resultList.value = res.list || []
+}
+
+async function handleSearch(event) {
   const value = event.detail.value || keyword.value
   keyword.value = value.trim()
 
   if (keyword.value) {
     historyList.value = addSearchHistory(keyword.value)
+    await loadResults()
+  } else {
+    resultList.value = []
   }
 }
 
-function quickSearch(value) {
+async function quickSearch(value) {
   keyword.value = value
   historyList.value = addSearchHistory(value)
+  await loadResults()
 }
 
 function clearHistory() {
@@ -113,8 +131,16 @@ function clearHistory() {
   refreshHistory()
 }
 
-function handleAddCart(item) {
-  addToCart(item)
+async function handleAddCart(item) {
+  if (!requireLogin()) {
+    return
+  }
+
+  await addCartItem({
+    productId: item.id,
+    skuName: item.specs?.[0] || '默认规格',
+    quantity: 1
+  })
 
   uni.showToast({
     title: '已加入购物车',
@@ -138,6 +164,7 @@ onLoad(options => {
   if (options.keyword) {
     keyword.value = decodeURIComponent(options.keyword)
     historyList.value = addSearchHistory(keyword.value)
+    loadResults()
   }
 })
 </script>

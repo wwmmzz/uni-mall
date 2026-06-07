@@ -24,7 +24,7 @@
 
 <script setup>
 import { reactive } from 'vue'
-import { setUser } from '@/utils/storage.js'
+import { mockLogin } from '@/api/auth.js'
 
 const form = reactive({
   phone: '13800138000',
@@ -38,7 +38,7 @@ function sendCode() {
   })
 }
 
-function login() {
+async function login() {
   if (!/^1\d{10}$/.test(form.phone)) {
     uni.showToast({
       title: '请输入正确手机号',
@@ -55,11 +55,9 @@ function login() {
     return
   }
 
-  setUser({
-    id: `user_${Date.now()}`,
-    nickname: '优选用户',
+  await mockLogin({
     phone: form.phone,
-    avatar: ''
+    code: form.code
   })
 
   uni.showToast({

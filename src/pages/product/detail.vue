@@ -103,28 +103,47 @@ import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import QuantityStepper from '@/components/QuantityStepper/QuantityStepper.vue'
 import PriceText from '@/components/PriceText/PriceText.vue'
-import { getProductById } from '@/common/mock.js'
+import { getProductDetail } from '@/api/product.js'
+import { addCartItem } from '@/api/cart.js'
+import { getFavoriteStatus, toggleFavorite as toggleFavoriteApi } from '@/api/favorite.js'
 import {
-  addToCart,
-  isFavorite,
-  toggleFavorite,
   setCheckoutItems,
-  money
+  money,
+  hasLogin,
+  requireLogin
 } from '@/utils/storage.js'
 
-const product = ref(getProductById('1001'))
+const product = ref({
+  tags: [],
+  specs: []
+})
 const selectedSku = ref('')
 const quantity = ref(1)
 const favorite = ref(false)
 
-function loadProduct(id) {
-  product.value = getProductById(id)
+async function loadProduct(id) {
+  product.value = await getProductDetail(id)
   selectedSku.value = product.value.specs[0] || '默认规格'
-  favorite.value = isFavorite(product.value.id)
+  quantity.value = 1
+
+  if (hasLogin()) {
+    const res = await getFavoriteStatus(product.value.id)
+    favorite.value = Boolean(res.favorited)
+  } else {
+    favorite.value = false
+  }
 }
 
-function handleAddCart() {
-  addToCart(product.value, { skuName: selectedSku.value }, quantity.value)
+async function handleAddCart() {
+  if (!requireLogin()) {
+    return
+  }
+
+  await addCartItem({
+    productId: product.value.id,
+    skuName: selectedSku.value,
+    quantity: quantity.value
+  })
 
   uni.showToast({
     title: '已加入购物车',
@@ -133,6 +152,10 @@ function handleAddCart() {
 }
 
 function buyNow() {
+  if (!requireLogin()) {
+    return
+  }
+
   setCheckoutItems([
     {
       cartId: '',
@@ -143,6 +166,7 @@ function buyNow() {
       cover: product.value.cover || '',
       coverText: product.value.coverText,
       gradient: product.value.gradient,
+      category: product.value.category,
       skuName: selectedSku.value,
       quantity: quantity.value,
       checked: true
@@ -154,8 +178,15 @@ function buyNow() {
   })
 }
 
-function handleFavorite() {
-  favorite.value = toggleFavorite(product.value)
+async function handleFavorite() {
+  if (!requireLogin()) {
+    return
+  }
+
+  const res = await toggleFavoriteApi({
+    productId: product.value.id
+  })
+  favorite.value = Boolean(res.favorited)
 
   uni.showToast({
     title: favorite.value ? '已收藏' : '已取消收藏',
@@ -186,7 +217,11 @@ onLoad(options => {
 })
 
 onShow(() => {
-  favorite.value = isFavorite(product.value.id)
+  if (product.value.id && hasLogin()) {
+    getFavoriteStatus(product.value.id).then(res => {
+      favorite.value = Boolean(res.favorited)
+    })
+  }
 })
 </script>
 

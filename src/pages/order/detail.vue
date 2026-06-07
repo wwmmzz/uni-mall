@@ -90,8 +90,9 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import EmptyState from '@/components/EmptyState/EmptyState.vue'
-import { statusTextMap } from '@/common/mock.js'
-import { getOrderById, setCheckoutItems, money } from '@/utils/storage.js'
+import { getOrderDetail } from '@/api/order.js'
+import { statusTextMap } from '@/common/constants.js'
+import { money, requireLogin, setCheckoutItems } from '@/utils/storage.js'
 
 const order = ref(null)
 
@@ -119,7 +120,13 @@ function goOrderList() {
 }
 
 onLoad(options => {
-  order.value = getOrderById(options.id)
+  if (!requireLogin()) {
+    return
+  }
+
+  getOrderDetail(options.id).then(res => {
+    order.value = res
+  })
 })
 </script>
 

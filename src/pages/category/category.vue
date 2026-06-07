@@ -44,15 +44,32 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { computed, ref, watch } from 'vue'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import ProductCard from '@/components/ProductCard/ProductCard.vue'
-import { categoryTabs, getProductsByCategory } from '@/common/mock.js'
-import { addToCart } from '@/utils/storage.js'
+import { getCategories } from '@/api/home.js'
+import { getProducts } from '@/api/product.js'
+import { addCartItem } from '@/api/cart.js'
+import { categoryGradientMap } from '@/common/constants.js'
+import { requireLogin } from '@/utils/storage.js'
 
 const activeCategory = ref('all')
+const categoryTabs = ref([{ id: 'all', name: '全部' }])
+const productList = ref([])
 
-const productList = computed(() => getProductsByCategory(activeCategory.value))
+async function loadCategoryTabs() {
+  const list = await getCategories()
+  categoryTabs.value = [{ id: 'all', name: '全部' }, ...list]
+}
+
+async function loadProductsByCategory() {
+  const res = await getProducts({
+    categoryId: activeCategory.value,
+    page: 1,
+    pageSize: 50
+  })
+  productList.value = res.list || []
+}
 
 const currentCategoryName = computed(() => {
   const target = categoryTabs.find(item => item.id === activeCategory.value)
@@ -60,18 +77,7 @@ const currentCategoryName = computed(() => {
 })
 
 const currentGradient = computed(() => {
-  const gradientMap = {
-    all: 'linear-gradient(135deg, #ff7a45 0%, #ff2d55 100%)',
-    phone: 'linear-gradient(135deg, #4f8cff 0%, #8d5cff 100%)',
-    beauty: 'linear-gradient(135deg, #ff8ab3 0%, #ff5e8a 100%)',
-    food: 'linear-gradient(135deg, #ffba52 0%, #ff7a45 100%)',
-    home: 'linear-gradient(135deg, #18c37d 0%, #12a1ff 100%)',
-    sport: 'linear-gradient(135deg, #41d18c 0%, #4f8cff 100%)',
-    fashion: 'linear-gradient(135deg, #c45cff 0%, #ff5e8a 100%)',
-    baby: 'linear-gradient(135deg, #ffd45c 0%, #ff9f52 100%)'
-  }
-
-  return gradientMap[activeCategory.value] || gradientMap.all
+  return categoryGradientMap[activeCategory.value] || categoryGradientMap.all
 })
 
 function goSearch() {
@@ -86,14 +92,31 @@ function goDetail(item) {
   })
 }
 
-function handleAddCart(item) {
-  addToCart(item)
+async function handleAddCart(item) {
+  if (!requireLogin()) {
+    return
+  }
+
+  await addCartItem({
+    productId: item.id,
+    skuName: item.specs?.[0] || '默认规格',
+    quantity: 1
+  })
 
   uni.showToast({
     title: '已加入购物车',
     icon: 'success'
   })
 }
+
+watch(activeCategory, () => {
+  loadProductsByCategory()
+})
+
+onLoad(() => {
+  loadCategoryTabs()
+  loadProductsByCategory()
+})
 
 onShow(() => {
   const target = uni.getStorageSync('UMALL_CATEGORY_TARGET')

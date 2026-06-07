@@ -40,18 +40,19 @@
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import EmptyState from '@/components/EmptyState/EmptyState.vue'
-import {
-  getAddresses,
-  setDefaultAddress,
-  deleteAddress,
-  setCheckoutAddress
-} from '@/utils/storage.js'
+import { deleteAddress, getAddressList, setDefaultAddress } from '@/api/address.js'
+import { requireLogin, setCheckoutAddress } from '@/utils/storage.js'
 
 const addressList = ref([])
 const mode = ref('normal')
 
-function loadAddress() {
-  addressList.value = getAddresses()
+async function loadAddress() {
+  if (!requireLogin()) {
+    addressList.value = []
+    return
+  }
+
+  addressList.value = await getAddressList()
 }
 
 function choose(item) {
@@ -70,12 +71,12 @@ function addAddress() {
 
 function edit(item) {
   uni.navigateTo({
-    url: `/pages/address/edit?id=${item.id}`
+    url: `/pages/address/edit?data=${encodeURIComponent(JSON.stringify(item))}`
   })
 }
 
-function makeDefault(item) {
-  setDefaultAddress(item.id)
+async function makeDefault(item) {
+  await setDefaultAddress(item.id)
   loadAddress()
 }
 
@@ -86,8 +87,9 @@ function remove(item) {
     confirmColor: '#ff4d3f',
     success: result => {
       if (result.confirm) {
-        deleteAddress(item.id)
-        loadAddress()
+        deleteAddress(item.id).then(() => {
+          loadAddress()
+        })
       }
     }
   })

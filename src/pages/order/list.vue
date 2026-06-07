@@ -45,8 +45,8 @@
 
         <view class="actions">
           <view class="outline-btn" @click="goDetail(order)">订单详情</view>
-          <view v-if="order.status === 'unpaid'" class="solid-btn" @click="payOrder(order)">立即支付</view>
-          <view v-else-if="order.status === 'shipped'" class="solid-btn" @click="finishOrder(order)">确认收货</view>
+          <view v-if="order.status === 'unpaid'" class="solid-btn" @click="handlePayOrder(order)">立即支付</view>
+          <view v-else-if="order.status === 'shipped'" class="solid-btn" @click="handleFinishOrder(order)">确认收货</view>
           <view v-else class="solid-btn" @click="buyAgain(order)">再次购买</view>
         </view>
       </view>
@@ -64,11 +64,12 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import EmptyState from '@/components/EmptyState/EmptyState.vue'
-import { orderTabs, statusTextMap } from '@/common/mock.js'
-import { getOrders, updateOrder, setCheckoutItems, money } from '@/utils/storage.js'
+import { finishOrder, getOrders, payOrder } from '@/api/order.js'
+import { orderTabs, statusTextMap } from '@/common/constants.js'
+import { money, requireLogin, setCheckoutItems } from '@/utils/storage.js'
 
 const activeStatus = ref('all')
 const orders = ref([])
@@ -81,8 +82,18 @@ const filteredOrders = computed(() => {
   return orders.value.filter(item => item.status === activeStatus.value)
 })
 
-function loadOrders() {
-  orders.value = getOrders()
+async function loadOrders() {
+  if (!requireLogin()) {
+    orders.value = []
+    return
+  }
+
+  const res = await getOrders({
+    status: activeStatus.value,
+    page: 1,
+    pageSize: 50
+  })
+  orders.value = res.list || []
 }
 
 function goDetail(order) {
@@ -91,12 +102,9 @@ function goDetail(order) {
   })
 }
 
-function payOrder(order) {
-  updateOrder(order.id, {
-    status: 'paid',
-    statusText: '待发货'
-  })
-  loadOrders()
+async function handlePayOrder(order) {
+  await payOrder(order.id)
+  await loadOrders()
 
   uni.showToast({
     title: '支付成功',
@@ -104,12 +112,9 @@ function payOrder(order) {
   })
 }
 
-function finishOrder(order) {
-  updateOrder(order.id, {
-    status: 'finished',
-    statusText: '已完成'
-  })
-  loadOrders()
+async function handleFinishOrder(order) {
+  await finishOrder(order.id)
+  await loadOrders()
 
   uni.showToast({
     title: '已确认收货',
@@ -132,6 +137,10 @@ function goHome() {
 
 onLoad(options => {
   activeStatus.value = options.status || 'all'
+})
+
+watch(activeStatus, () => {
+  loadOrders()
 })
 
 onShow(loadOrders)

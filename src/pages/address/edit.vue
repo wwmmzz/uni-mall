@@ -40,7 +40,8 @@
 <script setup>
 import { reactive } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getAddressById, upsertAddress } from '@/utils/storage.js'
+import { createAddress, updateAddress } from '@/api/address.js'
+import { requireLogin } from '@/utils/storage.js'
 
 const form = reactive({
   id: '',
@@ -65,7 +66,7 @@ function validate() {
   return ''
 }
 
-function save() {
+async function save() {
   const message = validate()
 
   if (message) {
@@ -76,8 +77,7 @@ function save() {
     return
   }
 
-  upsertAddress({
-    id: form.id,
+  const payload = {
     name: form.name,
     phone: form.phone,
     province: form.province,
@@ -85,7 +85,13 @@ function save() {
     district: form.district,
     detail: form.detail,
     isDefault: form.isDefault
-  })
+  }
+
+  if (form.id) {
+    await updateAddress(form.id, payload)
+  } else {
+    await createAddress(payload)
+  }
 
   uni.showToast({
     title: '保存成功',
@@ -98,11 +104,12 @@ function save() {
 }
 
 onLoad(options => {
-  if (!options.id) return
+  if (!requireLogin()) {
+    return
+  }
 
-  const target = getAddressById(options.id)
-
-  if (target) {
+  if (options.data) {
+    const target = JSON.parse(decodeURIComponent(options.data))
     Object.assign(form, target)
   }
 })

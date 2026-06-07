@@ -86,17 +86,16 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
+import { getAddressList } from '@/api/address.js'
+import { createOrder } from '@/api/order.js'
 import {
+  clearCheckoutItems,
   getCheckoutItems,
   getCheckoutAddress,
-  getDefaultAddress,
   getSelectedCoupon,
   setSelectedCoupon,
   setCheckoutAddress,
-  addOrder,
-  createOrderNo,
-  formatDate,
-  removeCartItems,
+  requireLogin,
   money
 } from '@/utils/storage.js'
 
@@ -128,8 +127,14 @@ const totalAmount = computed(() => {
   return total > 0 ? total : 0
 })
 
-function loadAddressAndCoupon() {
-  address.value = getCheckoutAddress() || getDefaultAddress()
+async function loadAddressAndCoupon() {
+  if (!requireLogin()) {
+    return
+  }
+
+  const selectedAddress = getCheckoutAddress()
+  const list = await getAddressList()
+  address.value = selectedAddress || list.find(item => item.isDefault) || list[0] || null
   selectedCoupon.value = getSelectedCoupon()
 }
 
@@ -145,7 +150,7 @@ function chooseCoupon() {
   })
 }
 
-function submitOrder() {
+async function submitOrder() {
   if (!items.value.length) {
     uni.showToast({
       title: '暂无可结算商品',
@@ -162,31 +167,31 @@ function submitOrder() {
     return
   }
 
-  const order = addOrder({
-    id: createOrderNo(),
-    status: 'paid',
-    statusText: '待发货',
-    createdAt: formatDate(),
-    payType: '微信支付',
-    items: items.value,
-    address: address.value,
+  const payload = {
+    addressId: address.value.id,
+    couponId: selectedCoupon.value?.id,
     remark: remark.value,
-    goodsAmount: goodsAmount.value,
-    freight: freight.value,
-    discount: discount.value,
-    totalAmount: totalAmount.value
-  })
+    payNow: true
+  }
 
   if (source.value === 'cart') {
-    const cartIds = items.value.map(item => item.cartId).filter(Boolean)
-    removeCartItems(cartIds)
+    payload.cartItemIds = items.value.map(item => item.cartId || item.id).filter(Boolean)
+  } else {
+    payload.items = items.value.map(item => ({
+      productId: item.productId,
+      skuName: item.skuName,
+      quantity: item.quantity
+    }))
   }
+
+  const order = await createOrder(payload)
 
   setSelectedCoupon(null)
   setCheckoutAddress(null)
+  clearCheckoutItems()
 
   uni.redirectTo({
-    url: `/pages/payment/result?status=success&orderId=${order.id}`
+    url: `/pages/payment/result?status=success&orderId=${order.orderNo}`
   })
 }
 

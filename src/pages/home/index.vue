@@ -79,15 +79,26 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { onPullDownRefresh } from '@dcloudio/uni-app'
+import { ref } from 'vue'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import ProductCard from '@/components/ProductCard/ProductCard.vue'
 import SectionTitle from '@/components/SectionTitle/SectionTitle.vue'
-import { banners, categoryShortcuts, getHotProducts, products } from '@/common/mock.js'
-import { addToCart, money } from '@/utils/storage.js'
+import { getHomeData } from '@/api/home.js'
+import { addCartItem } from '@/api/cart.js'
+import { money, requireLogin } from '@/utils/storage.js'
 
-const hotProducts = computed(() => getHotProducts(6))
-const recommendProducts = computed(() => products)
+const banners = ref([])
+const categoryShortcuts = ref([])
+const hotProducts = ref([])
+const recommendProducts = ref([])
+
+async function loadHomeData() {
+  const res = await getHomeData()
+  banners.value = res.banners || []
+  categoryShortcuts.value = res.categoryShortcuts || []
+  hotProducts.value = res.hotProducts || []
+  recommendProducts.value = res.newProducts || []
+}
 
 function goSearch() {
   uni.navigateTo({
@@ -108,8 +119,16 @@ function goDetail(item) {
   })
 }
 
-function handleAddCart(item) {
-  addToCart(item)
+async function handleAddCart(item) {
+  if (!requireLogin()) {
+    return
+  }
+
+  await addCartItem({
+    productId: item.id,
+    skuName: item.specs?.[0] || '默认规格',
+    quantity: 1
+  })
 
   uni.showToast({
     title: '已加入购物车',
@@ -124,14 +143,18 @@ function showNotice() {
   })
 }
 
+onLoad(() => {
+  loadHomeData()
+})
+
 onPullDownRefresh(() => {
-  setTimeout(() => {
+  loadHomeData().finally(() => {
     uni.stopPullDownRefresh()
     uni.showToast({
       title: '刷新成功',
       icon: 'none'
     })
-  }, 500)
+  })
 })
 </script>
 

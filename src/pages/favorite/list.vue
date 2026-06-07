@@ -27,13 +27,20 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import ProductCard from '@/components/ProductCard/ProductCard.vue'
 import EmptyState from '@/components/EmptyState/EmptyState.vue'
-import { getProductById } from '@/common/mock.js'
-import { getFavorites, addToCart } from '@/utils/storage.js'
+import { getFavorites } from '@/api/favorite.js'
+import { getProductDetail } from '@/api/product.js'
+import { addCartItem } from '@/api/cart.js'
+import { requireLogin } from '@/utils/storage.js'
 
 const favoriteList = ref([])
 
-function loadFavorites() {
-  favoriteList.value = getFavorites()
+async function loadFavorites() {
+  if (!requireLogin()) {
+    favoriteList.value = []
+    return
+  }
+
+  favoriteList.value = await getFavorites()
 }
 
 function goDetail(item) {
@@ -42,9 +49,17 @@ function goDetail(item) {
   })
 }
 
-function handleAddCart(item) {
-  const product = getProductById(item.id)
-  addToCart(product)
+async function handleAddCart(item) {
+  if (!requireLogin()) {
+    return
+  }
+
+  const product = await getProductDetail(item.id)
+  await addCartItem({
+    productId: product.id,
+    skuName: product.specs?.[0] || '默认规格',
+    quantity: 1
+  })
 
   uni.showToast({
     title: '已加入购物车',

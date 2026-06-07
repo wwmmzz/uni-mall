@@ -1,7 +1,7 @@
 <template>
   <view class="page coupon-page safe-bottom">
     <view class="coupon-list">
-      <view v-for="item in coupons" :key="item.id" class="coupon-card">
+      <view v-for="item in couponList" :key="item.id" class="coupon-card">
         <view class="amount-box">
           <text class="symbol">¥</text>
           <text class="amount">{{ item.amount }}</text>
@@ -14,27 +14,64 @@
         </view>
 
         <view class="use-btn" @click="selectCoupon(item)">
-          {{ mode === 'select' ? '使用' : '领取' }}
+          {{ getButtonText(item) }}
         </view>
       </view>
     </view>
 
     <view class="tip">
-      <text>说明：这是前端演示优惠券，接入接口后可替换为真实领取和核销逻辑。</text>
+      <text>说明：优惠券数据来自后端；结算页选择时会按当前商品金额计算是否可用。</text>
     </view>
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
-import { coupons } from '@/common/mock.js'
-import { setSelectedCoupon } from '@/utils/storage.js'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import { getCoupons, claimCoupon } from '@/api/coupon.js'
+import { getCheckoutItems, requireLogin, setSelectedCoupon } from '@/utils/storage.js'
 
 const mode = ref('normal')
+const couponList = ref([])
 
-function selectCoupon(item) {
+function getQueryParams() {
+  const items = getCheckoutItems()
+  const goodsAmount = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0)
+  const categories = [...new Set(items.map(item => item.category).filter(Boolean))]
+
+  return {
+    goodsAmount,
+    ...(categories.length === 1 ? { categoryId: categories[0] } : {})
+  }
+}
+
+async function loadCoupons() {
+  if (!requireLogin()) {
+    couponList.value = []
+    return
+  }
+
+  couponList.value = await getCoupons(getQueryParams())
+}
+
+function getButtonText(item) {
   if (mode.value === 'select') {
+    return item.usable ? '使用' : '不可用'
+  }
+
+  return item.status === 'unclaimed' ? '领取' : '已领取'
+}
+
+async function selectCoupon(item) {
+  if (mode.value === 'select') {
+    if (!item.usable) {
+      uni.showToast({
+        title: '当前订单不可使用该优惠券',
+        icon: 'none'
+      })
+      return
+    }
+
     setSelectedCoupon(item)
 
     uni.showToast({
@@ -49,14 +86,28 @@ function selectCoupon(item) {
     return
   }
 
+  if (item.status === 'unclaimed') {
+    await claimCoupon(item.id)
+    await loadCoupons()
+    uni.showToast({
+      title: '领取成功',
+      icon: 'success'
+    })
+    return
+  }
+
   uni.showToast({
-    title: '领取成功',
-    icon: 'success'
+    title: '已领取',
+    icon: 'none'
   })
 }
 
 onLoad(options => {
   mode.value = options.mode || 'normal'
+})
+
+onShow(() => {
+  loadCoupons()
 })
 </script>
 

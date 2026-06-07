@@ -73,7 +73,8 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import EmptyState from '@/components/EmptyState/EmptyState.vue'
 import QuantityStepper from '@/components/QuantityStepper/QuantityStepper.vue'
-import { getCart, saveCart, setCheckoutItems, money } from '@/utils/storage.js'
+import { checkAllCart, getCart, removeCartItem, updateCartItem } from '@/api/cart.js'
+import { money, requireLogin, setCheckoutItems } from '@/utils/storage.js'
 
 const cartList = ref([])
 
@@ -82,31 +83,41 @@ const selectedCount = computed(() => selectedItems.value.reduce((sum, item) => s
 const totalAmount = computed(() => selectedItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0))
 const isAllSelected = computed(() => cartList.value.length > 0 && cartList.value.every(item => item.checked))
 
-function loadCart() {
-  cartList.value = getCart()
+function applyCartResult(result) {
+  cartList.value = result.list || []
 }
 
-function persist() {
-  saveCart(cartList.value)
+async function loadCart() {
+  if (!requireLogin()) {
+    cartList.value = []
+    return
+  }
+
+  const res = await getCart()
+  applyCartResult(res)
 }
 
-function toggleItem(index) {
-  cartList.value[index].checked = !cartList.value[index].checked
-  persist()
+async function toggleItem(index) {
+  const item = cartList.value[index]
+  const res = await updateCartItem(item.id, {
+    checked: !item.checked
+  })
+  applyCartResult(res)
 }
 
-function toggleAll() {
-  const next = !isAllSelected.value
-  cartList.value = cartList.value.map(item => ({
-    ...item,
-    checked: next
-  }))
-  persist()
+async function toggleAll() {
+  const res = await checkAllCart({
+    checked: !isAllSelected.value
+  })
+  applyCartResult(res)
 }
 
-function updateQuantity(index, value) {
-  cartList.value[index].quantity = value
-  persist()
+async function updateQuantity(index, value) {
+  const item = cartList.value[index]
+  const res = await updateCartItem(item.id, {
+    quantity: value
+  })
+  applyCartResult(res)
 }
 
 function removeItem(index) {
@@ -116,8 +127,9 @@ function removeItem(index) {
     confirmColor: '#ff4d3f',
     success: result => {
       if (result.confirm) {
-        cartList.value.splice(index, 1)
-        persist()
+        removeCartItem(cartList.value[index].id).then(res => {
+          applyCartResult(res)
+        })
       }
     }
   })

@@ -20,7 +20,7 @@
 
     <view class="asset-card card">
       <view class="asset-item" @click="goCoupon">
-        <text class="asset-value">3</text>
+        <text class="asset-value">{{ couponCount }}</text>
         <text class="asset-label">优惠券</text>
       </view>
       <view class="asset-item" @click="goFavorite">
@@ -91,10 +91,14 @@
 <script setup>
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getUser, setUser, getFavorites } from '@/utils/storage.js'
+import { getProfile } from '@/api/auth.js'
+import { getFavorites } from '@/api/favorite.js'
+import { getCoupons } from '@/api/coupon.js'
+import { clearAuth, hasLogin, setUser } from '@/utils/storage.js'
 
 const user = ref(null)
 const favoriteCount = ref(0)
+const couponCount = ref(0)
 
 const orderActions = [
   { status: 'unpaid', name: '待付款', icon: '💳' },
@@ -103,9 +107,24 @@ const orderActions = [
   { status: 'finished', name: '已完成', icon: '✅' }
 ]
 
-function loadUser() {
-  user.value = getUser()
-  favoriteCount.value = getFavorites().length
+async function loadUser() {
+  if (!hasLogin()) {
+    user.value = null
+    favoriteCount.value = 0
+    couponCount.value = 0
+    return
+  }
+
+  const [profile, favorites, coupons] = await Promise.all([
+    getProfile(),
+    getFavorites(),
+    getCoupons({})
+  ])
+
+  user.value = profile
+  setUser(profile)
+  favoriteCount.value = favorites.length
+  couponCount.value = coupons.filter(item => item.status === 'unused').length
 }
 
 function goLogin() {
@@ -161,6 +180,7 @@ function logout() {
     confirmColor: '#ff4d3f',
     success: result => {
       if (result.confirm) {
+        clearAuth()
         setUser(null)
         loadUser()
       }
