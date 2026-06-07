@@ -1,0 +1,23 @@
+{
+  "name": "uni 商城小程序",
+  "appid": "__UNI__MALLDEMO",
+  "description": "一套完整的 uni-app Vue3 小程序商城页面模板",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true
+    },
+    "usingComponents": true
+  },
+  "h5": {
+    "router": {
+      "mode": "hash"
+    }
+  }
+}
